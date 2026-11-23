@@ -1,42 +1,66 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Connexion Postes Canada",
-                "description": "Entrez vos identifiants de l'application mobile Postes Canada (Mon Courrier).",
-                "data": {
-                    "username": "Nom d'utilisateur",
-                    "password": "Mot de passe",
-                    "include_ads": "Inclure les circulaires (Raddar, Metro, etc.)"
-                }
-            }
-        },
-        "error": {
-            "auth_failed": "Échec de l'authentification. Vérifiez vos identifiants.",
-            "cannot_discover_id": "Échec de récupération de l'ID unique. Le service 'Mon Courrier' est-il activé?"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Postes Canada Mon Courrier",
+        "description": "Connectez-vous avec votre compte Postes Canada. Votre mot de passe n'est jamais enregistré : seuls les jetons OAuth sont conservés.",
+        "data": {
+          "username": "Nom d'utilisateur",
+          "password": "Mot de passe",
+          "include_ads": "Inclure les circulaires / articles arrivant bientôt"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reconnecter Postes Canada Mon Courrier",
+        "description": "Votre session Postes Canada pour {username} a expiré. Entrez votre mot de passe pour vous reconnecter.",
+        "data": {
+          "password": "Mot de passe"
+        }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Options de Postes Canada",
-                "data": {
-                    "include_ads": "Afficher les publicités dans les capteurs"
-                }
-            }
-        }
+    "error": {
+      "auth_failed": "Nom d'utilisateur ou mot de passe invalide.",
+      "cannot_connect": "Impossible de joindre Postes Canada. Veuillez réessayer plus tard.",
+      "cannot_discover_id": "Impossible de récupérer l'identifiant Mon Courrier depuis le jeton.",
+      "two_step_not_supported": "La vérification en deux étapes n'est pas prise en charge."
     },
-    "entity": {
-        "sensor": {
-            "transit": { 
-                "name": "En chemin" 
-            },
-            "delivered": {
-                "name": "Livré" 
-            },
-            "mail_updated": {
-                "name": "Mis à jour"
-            }
-        }
+    "abort": {
+      "already_configured": "Ce compte Postes Canada est déjà configuré.",
+      "reauth_successful": "Reconnexion réussie."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Postes Canada Mon Courrier",
+        "data": {
+          "include_ads": "Inclure les circulaires / articles arrivant bientôt"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "out_for_delivery": {
+        "name": "En cours de livraison"
+      },
+      "arriving_soon": {
+        "name": "Arrive bientôt"
+      },
+      "transit": {
+        "name": "En chemin"
+      },
+      "delivered": {
+        "name": "Livré"
+      },
+      "mail_updated": {
+        "name": "Courrier mis à jour"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Actualiser"
+      }
+    }
+  }
 }

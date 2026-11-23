@@ -1,42 +1,66 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Canada Post Account",
-                "description": "Enter your Postes Canada mobile app id's.",
-                "data": {
-                    "username": "Username",
-                    "password": "Password",
-                    "include_ads": "Include circulars/ads in sensors"
-                }
-            }
-        },
-        "error": {
-            "auth_failed": "Failed to authentificate. Check your id.",
-            "cannot_discover_id": "Failed to fetch your unique tracking ID, is My Mail enabled?"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Canada Post My Mail",
+        "description": "Sign in with your Canada Post account. Your password is used once to obtain OAuth tokens and is never stored.",
+        "data": {
+          "username": "Username",
+          "password": "Password",
+          "include_ads": "Include flyers / arriving soon mail"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Canada Post My Mail",
+        "description": "Your Canada Post session for {username} expired. Enter your password to sign in again.",
+        "data": {
+          "password": "Password"
+        }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Canada Post Options",
-                "data": {
-                    "include_ads": "Show circulars/ads in sensors"
-                }
-            }
-        }
+    "error": {
+      "auth_failed": "Invalid username or password.",
+      "cannot_connect": "Could not reach Canada Post. Please try again later.",
+      "cannot_discover_id": "Could not read your My Mail topic ID from the sign-in token.",
+      "two_step_not_supported": "Two-step verification is enabled on this account and is not supported."
     },
-    "entity": {
-        "sensor": {
-            "transit": {
-                "name": "In transit"
-            },
-            "delivered": {
-                "name": "Delivered"
-            },
-            "mail_updated": {
-                "name": "Mail Updated"
-            }
-        }
+    "abort": {
+      "already_configured": "This Canada Post account is already configured.",
+      "reauth_successful": "Re-authentication succeeded."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Canada Post My Mail Options",
+        "data": {
+          "include_ads": "Include flyers / arriving soon mail"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "out_for_delivery": {
+        "name": "Out for delivery"
+      },
+      "arriving_soon": {
+        "name": "Arriving soon"
+      },
+      "transit": {
+        "name": "In transit"
+      },
+      "delivered": {
+        "name": "Delivered"
+      },
+      "mail_updated": {
+        "name": "Mail updated"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Refresh"
+      }
+    }
+  }
 }

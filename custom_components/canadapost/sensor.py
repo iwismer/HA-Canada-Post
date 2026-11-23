@@ -1,141 +1,146 @@
-import logging
+"""Sensor platform for Canada Post My Mail."""
 
-from datetime import timedelta, datetime
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed, CoordinatorEntity
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_INCLUDE_ADS
+from .const import CONF_INCLUDE_ADS, CONF_TOPIC_ID, DOMAIN
 from .coordinator import CanadaPostUpdateCoordinator
+from .models import categorize_mail
 
-_LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(hours=1)
+@dataclass(frozen=True)
+class _SensorSpec:
+    key: str
+    bucket: str
+    translation_key: str
+    icon: str
+    unique_id_fmt: str
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN][entry.entry_id]
 
-    topic_id = entry.data.get("topic_id")
+_SENSORS: tuple[_SensorSpec, ...] = (
+    _SensorSpec(
+        key="out_for_delivery",
+        bucket="out_for_delivery",
+        translation_key="out_for_delivery",
+        icon="mdi:email-fast-outline",
+        unique_id_fmt="cp_v2_{topic_id}_out_for_delivery",
+    ),
+    _SensorSpec(
+        key="arriving_soon",
+        bucket="arriving_soon",
+        translation_key="arriving_soon",
+        icon="mdi:newspaper-variant-multiple-outline",
+        unique_id_fmt="cp_v2_{topic_id}_arriving_soon",
+    ),
+    _SensorSpec(
+        key="transit",
+        bucket="in_transit",
+        translation_key="transit",
+        icon="mdi:truck-delivery-outline",
+        unique_id_fmt="cp_v2_{topic_id}_transit",
+    ),
+    _SensorSpec(
+        key="delivered",
+        bucket="delivered",
+        translation_key="delivered",
+        icon="mdi:package-variant-closed-check",
+        unique_id_fmt="cp_v2_{topic_id}_delivered",
+    ),
+    _SensorSpec(
+        key="mail_updated",
+        bucket="delivered",
+        translation_key="mail_updated",
+        icon="mdi:mailbox-outline",
+        unique_id_fmt="cp_mail_updated_compat_{topic_id}",
+    ),
+)
 
-    async_add_entities([
-        CanadaPostMailSensor(coordinator, topic_id, "transit"),
-        CanadaPostMailSensor(coordinator, topic_id, "delivered"),
-        CanadaPostUpdatedSensor(coordinator, topic_id)
-    ])
 
-    entry.async_on_unload(entry.add_update_listener(update_listener))
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Canada Post My Mail sensors."""
+    coordinator: CanadaPostUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    topic_id: str = entry.data[CONF_TOPIC_ID]
 
-    return True
+    async_add_entities(
+        CanadaPostMailSensor(coordinator, topic_id, spec) for spec in _SENSORS
+    )
 
-async def update_listener(hass, entry):
-    await hass.config_entries.async_reload(entry.entry_id)
 
-class CanadaPostMailSensor(CoordinatorEntity, SensorEntity):
+class CanadaPostMailSensor(
+    CoordinatorEntity[CanadaPostUpdateCoordinator], SensorEntity
+):
+    """Sensor representing a category of Canada Post My Mail items."""
+
     _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, topic_id, sensor_type):
+    def __init__(
+        self,
+        coordinator: CanadaPostUpdateCoordinator,
+        topic_id: str,
+        spec: _SensorSpec,
+    ) -> None:
         super().__init__(coordinator)
-        self._topic_id = topic_id
-        self._type = sensor_type
-
+        self._spec = spec
         self._attr_device_info = coordinator.device_info
-        
-        self._attr_translation_key = sensor_type
-        self._attr_unique_id = f"cp_v2_{topic_id}_{sensor_type}"
-        
-        if sensor_type == "transit":
-            self._attr_icon = "mdi:truck-delivery-outline"
-        elif sensor_type == "delivered":
-            self._attr_icon = "mdi:package-variant-closed-check"
-        else:
-            self._attr_icon = "mdi:mailbox-outline"
+        self._attr_translation_key = spec.translation_key
+        self._attr_unique_id = spec.unique_id_fmt.format(topic_id=topic_id)
+        self._attr_icon = spec.icon
 
-    def _process_mail(self):
-        data = self.coordinator.data
-        if not data or "Results" not in data:
-            return []
-
-        transit_items = []
-        delivered_items = []
-        today = datetime.now().date()
-
-        include_ads = self.coordinator.config_entry.options.get(
-            CONF_INCLUDE_ADS, 
-            self.coordinator.config_entry.data.get(CONF_INCLUDE_ADS, True)
+    def _include_ads(self) -> bool:
+        return bool(
+            self.coordinator.entry.options.get(
+                CONF_INCLUDE_ADS,
+                self.coordinator.entry.data.get(CONF_INCLUDE_ADS, True),
+            )
         )
 
-        for result in data.get("Results", []):
-            date_str = result.get("Date", "")
-            try:
-                delivery_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            except:
-                delivery_date = today
+    def _lang(self) -> str:
+        language = getattr(self.hass.config, "language", "en") or "en"
+        return "fr" if language.lower().startswith("fr") else "en"
 
-            for piece in result.get("Mailpieces", []):
-                piece["_calculated_delivery_date"] = date_str
-
-                is_ad = piece.get("ServiceType") == 25
-                if is_ad and not include_ads:
-                    continue
-
-                if delivery_date < today:
-                    delivered_items.append(piece)
-                else:
-                    transit_items.append(piece)
-
-        return transit_items if self._type == "transit" else delivered_items
-
-    @property
-    def native_value(self):
-        return len(self._process_mail())
-
-    @property
-    def extra_state_attributes(self):
-        pieces = self._process_mail()
-        
-        packages = []
-        for piece in pieces:
-            mailer = piece.get("Mailer", {})
-            d_date = piece.get("_calculated_delivery_date", "Unknown")
-            is_ad = piece.get("ServiceType") == 25
-            
-            packages.append({
-                "sender": mailer.get("Name", {}).get("En", "Unknown"),
-                "image_url": mailer.get("Logo", {}).get("En"),
-                "estimated_delivery": d_date,
-                "tracking_number": piece.get("SOMIdentifier", "N/A"),
-                "tracking_description": "Advertisement" if is_ad else "Letter",
-                "tracking_status": "Delivered" if self._type == "delivered" else "In transit"
-            })
-
-        include_ads = self.coordinator.config_entry.options.get(
-            CONF_INCLUDE_ADS, 
-            self.coordinator.config_entry.data.get(CONF_INCLUDE_ADS, True)
+    def _items(self) -> list[dict[str, Any]]:
+        buckets = categorize_mail(
+            self.coordinator.data,
+            today=dt_util.now().date(),
+            include_ads=self._include_ads(),
+            lang=self._lang(),
         )
+        return buckets[self._spec.bucket]
 
-        attributes = {
-            "packages": packages,
-            "count": len(packages),
-            "ads_included": include_ads,
+    @property
+    def native_value(self) -> int:
+        return len(self._items())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        items = self._items()
+        logos = [item["image_url"] for item in items if item.get("image_url")]
+        digital_flyers = [item for item in items if item.get("has_digital_flyer")]
+
+        attributes: dict[str, Any] = {
+            "items": items,
+            "packages": items,
+            "count": len(items),
+            "digital_flyer_count": len(digital_flyers),
+            "ads_included": self._include_ads(),
             "integration_id": DOMAIN,
             "last_check": dt_util.now().isoformat(),
         }
-
-        if packages and packages[0].get("image_url"):
-            attributes["image_url"] = packages[0]["image_url"]
-
+        if logos:
+            attributes["image_url"] = logos[0]
+            attributes["logos"] = list(dict.fromkeys(logos))
         return attributes
-    
-class CanadaPostUpdatedSensor(CanadaPostMailSensor):    
-    def __init__(self, coordinator, topic_id):
-        super().__init__(coordinator, topic_id, "mail_updated")        
-        self._type = "delivered"        
-        self._attr_unique_id = f"cp_mail_updated_compat_{topic_id}"
-
-    @property
-    def native_value(self):
-        return len(self._process_mail())
-
-    @property
-    def extra_state_attributes(self):
-        return super().extra_state_attributes

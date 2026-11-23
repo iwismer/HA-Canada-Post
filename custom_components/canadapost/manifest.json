@@ -1,12 +1,12 @@
 {
   "domain": "canadapost",
   "name": "Canada Post My Mail",
-  "codeowners": ["@Miloud-H"],
+  "codeowners": ["@iwismer"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/Miloud-H/HA-Canada-Post",
+  "documentation": "https://github.com/iwismer/HA-Canada-Post",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/Miloud-H/HA-Canada-Post/issues",
+  "issue_tracker": "https://github.com/iwismer/HA-Canada-Post/issues",
   "requirements": [],
-  "version": "1.0.3"
+  "version": "2.0.0"
 }
